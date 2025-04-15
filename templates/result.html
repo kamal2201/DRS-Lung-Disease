@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classification Result</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            margin-top:10px;
+            margin-bottom:20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .result-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            animation: fadeIn 0.5s ease-in-out;
+            margin-bottom: 40px;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        img {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-width: 70%;
+            height: auto;
+            transition: transform 0.3s ease;
+        }
+        img:hover {
+            transform: scale(1.05);
+        }
+        .prediction-result {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 1.3em;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.3s ease;
+            margin-bottom: 25px;
+        }
+        .prediction-result:hover {
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+        h2, h3 {
+            margin: 10px 0;
+        }
+        h2 {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        h3 {
+            font-size: 1.5em;
+            color: #333;
+        }
+        a.button {
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+            margin-top: 20px;
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        a.button:hover {
+            background-color: #007bff;
+            color: white;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Styles for the hospital recommendations */
+        .hospital-section {
+            margin-top: 30px;
+            width: 100%;
+        }
+
+        .hospital-section h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .severity-indicator {
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .severity-low {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .severity-medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .severity-high {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .hospitals-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .hospital-card {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hospital-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .hospital-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+
+        .hospital-address, .hospital-phone, .hospital-distance {
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+
+        .hospital-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .hospital-action {
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .call-button {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .call-button:hover {
+            background-color: #218838;
+        }
+
+        .map-button {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .map-button:hover {
+            background-color: #0069d9;
+        }
+
+        .website-button {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .website-button:hover {
+            background-color: #5a6268;
+        }
+
+        /* Map styles */
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .rating-stars {
+            color: #ffc107;
+            margin-bottom: 5px;
+        }
+
+        .hospital-rating {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        /* When no hospitals found */
+        .no-hospitals {
+            padding: 20px;
+            text-align: center;
+            background-color: #f8d7da;
+            color: #721c24;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <h1>Results</h1>
+        <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Uploaded X-ray Image">
+        <div class="prediction-result">
+            <h2>Predicted Status:</h2>
+            <p style="background:yellow; width:50%; margin-left:25%; color:black; padding:10px; font-weight:bold; border-radius:5px;">{{ predicted_label }}</p>
+            <h3>Confidence Score:</h3>
+            <p style="background:yellow; width:50%; margin-left:25%; color:black; padding:10px; font-weight:bold; border-radius:5px;"> {{ '%.2f' % (confidence_score * 100) }}%</p>
+        </div>
+
+        <!-- Hospital Recommendations Section -->
+        <div class="hospital-section">
+            <h2>Nearby Hospitals For Your Condition</h2>
+
+            <!-- Severity Indicator -->
+            <div class="severity-indicator severity-{{ severity.lower() }}">
+                {{ predicted_label }} - {{ severity }} Severity
+            </div>
+
+            <!-- Map View -->
+            <div id="map"></div>
+
+            <!-- Hospital List -->
+            <h3 style="margin-top: 25px;">Recommended Hospitals</h3>
+
+            {% if hospitals and hospitals|length > 0 %}
+                <div class="hospitals-container">
+                    {% for hospital in hospitals %}
+                        <div class="hospital-card">
+                            <div class="hospital-name">{{ hospital.name }}</div>
+
+                            <!-- Rating stars -->
+                            <div class="hospital-rating">
+                                <div class="rating-stars">
+                                    {% for i in range(5) %}
+                                        {% if i < hospital.rating|int %}
+                                            ★
+                                        {% elif i < hospital.rating and i >= hospital.rating|int %}
+                                            ☆
+                                        {% else %}
+                                            ☆
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                Rating: {{ hospital.rating|round(1) if hospital.rating else 'Not rated' }}
+                            </div>
+
+                            <div class="hospital-address">
+                                <strong>Address:</strong> {{ hospital.address }}
+                            </div>
+
+                            <div class="hospital-phone">
+                                <strong>Phone:</strong> {{ hospital.phone }}
+                            </div>
+
+                            <div class="hospital-distance">
+                                <strong>Distance:</strong> {{ '%.1f'|format(hospital.distance) }} km
+                            </div>
+
+                            <div class="hospital-actions">
+                                {% if hospital.phone and hospital.phone != 'Not available' %}
+                                <a href="tel:{{ hospital.phone|replace('-', '')|replace(' ', '')|replace('(', '')|replace(')', '') }}" class="hospital-action call-button">Call Now</a>
+                                {% endif %}
+
+                                <a href="{{ hospital.maps_url }}" target="_blank" class="hospital-action map-button">View on Google Maps</a>
+
+                                {% if hospital.website %}
+                                <a href="{{ hospital.website }}" target="_blank" class="hospital-action website-button">Visit Website</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-hospitals">
+                    <p>No hospitals found in your area. This could be due to location permissions being denied or a temporary API issue.</p>
+                    <p>Please try again or manually search for hospitals near you.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <br>
+        <a href="{{ url_for('home') }}" class="button">Back to Home</a>
+    </div>
+
+    <!-- Google Maps JavaScript -->
+    <script>
+        function initMap() {
+            // Default center (will be overridden if hospitals exist)
+            const center = {
+                lat: {{ hospitals[0].lat if hospitals and hospitals|length > 0 else 37.7749 }},
+                lng: {{ hospitals[0].lon if hospitals and hospitals|length > 0 else -122.4194 }}
+            };
+
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: center,
+            });
+
+            // Add markers for each hospital
+            {% if hospitals and hospitals|length > 0 %}
+                {% for hospital in hospitals %}
+                    const marker{{ loop.index }} = new google.maps.Marker({
+                        position: { lat: {{ hospital.lat }}, lng: {{ hospital.lon }} },
+                        map: map,
+                        title: "{{ hospital.name }}",
+                        label: "{{ loop.index }}"
+                    });
+
+                    const infowindow{{ loop.index }} = new google.maps.InfoWindow({
+                        content: `
+                            <div style="max-width: 200px;">
+                                <h3 style="margin: 5px 0; color: #007bff;">{{ hospital.name }}</h3>
+                                <p style="margin: 5px 0;">{{ hospital.address }}</p>
+                                <p style="margin: 5px 0;">{{ hospital.phone }}</p>
+                                <p style="margin: 5px 0;"><strong>Distance:</strong> {{ '%.1f'|format(hospital.distance) }} km</p>
+                                <a href="{{ hospital.maps_url }}" target="_blank" style="color: #007bff;">Directions</a>
+                            </div>
+                        `
+                    });
+
+                    marker{{ loop.index }}.addListener("click", () => {
+                        infowindow{{ loop.index }}.open(map, marker{{ loop.index }});
+                    });
+                {% endfor %}
+            {% endif %}
+        }
+    </script>
+
+    <!-- Load the Google Maps API with your API key -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap">
+    </script>
+</body>
+</html>

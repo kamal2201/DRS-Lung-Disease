@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Recommendation System for Lung Disease</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 80%;
+            max-width: 800px;
+            margin-top: 50px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+        input[type="submit"] {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #218838;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 18px;
+            margin-top: 20px;
+            display: inline-block;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .location-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .location-status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .location-button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .location-button:hover {
+            background-color: #0069d9;
+        }
+        .disease-info {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        .disease-info h3 {
+            color: #28a745;
+            margin-top: 0;
+        }
+        .disease-info ul {
+            padding-left: 20px;
+        }
+        .disease-info li {
+            margin-bottom: 10px;
+        }
+        #map {
+            height: 200px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        .app-description {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .app-description h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        .app-description p {
+            color: #6c757d;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Doctor Recommendation System for Lung Disease</h1>
+        <p style="text-align:center">COVID-19, Viral Pneumonia, Normal Lung Classification</p>
+
+        <!-- Location Information Section -->
+        <div class="location-info">
+            <div class="location-status" id="locationStatus">Location: Not detected</div>
+            <button class="location-button" id="getLocationBtn">Get My Location</button>
+            <div id="locationCoords" style="margin-top: 10px; font-size: 0.9em; color: #666;"></div>
+
+            <!-- Map to show current location -->
+            <div id="map"></div>
+        </div>
+
+        <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" id="uploadForm">
+            <input type="file" name="file" accept="image/*">
+            <!-- Hidden fields for location data -->
+            <input type="hidden" name="latitude" id="latitudeField">
+            <input type="hidden" name="longitude" id="longitudeField">
+            <input type="submit" value="Upload X-ray Image">
+        </form>
+        <a href="{{ url_for('camera') }}">Open Camera</a>
+
+        <!-- Disease Information Section -->
+        <div class="disease-info">
+            <h3>About the Conditions We Detect</h3>
+            <ul>
+                <li><strong>COVID-19:</strong> A respiratory illness caused by the SARS-CoV-2 virus. X-rays may show ground-glass opacities and consolidation in the lungs.</li>
+                <li><strong>Viral Pneumonia:</strong> Inflammation of the lungs caused by various viruses. X-rays typically show interstitial patterns and patchy infiltrates.</li>
+                <li><strong>Normal:</strong> Healthy lung tissue without signs of disease.</li>
+            </ul>
+        </div>
+
+        <!-- App Description -->
+        <div class="app-description">
+            <h3>How This Works</h3>
+            <p>Upload an X-ray image of lungs, and our AI will analyze it to detect signs of COVID-19 or Viral Pneumonia. Based on your location and the severity of the condition detected, we'll recommend the most appropriate nearby hospitals.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const locationStatus = document.getElementById('locationStatus');
+            const locationCoords = document.getElementById('locationCoords');
+            const getLocationBtn = document.getElementById('getLocationBtn');
+            const latitudeField = document.getElementById('latitudeField');
+            const longitudeField = document.getElementById('longitudeField');
+            const mapDiv = document.getElementById('map');
+
+            let map;
+            let marker;
+
+            // Try to get location when page loads
+            tryGetLocation();
+
+            // Button click handler
+            getLocationBtn.addEventListener('click', function() {
+                tryGetLocation();
+            });
+
+            function tryGetLocation() {
+                if (navigator.geolocation) {
+                    locationStatus.textContent = 'Location: Detecting...';
+
+                    navigator.geolocation.getCurrentPosition(
+                        // Success callback
+                        function(position) {
+                            const latitude = position.coords.latitude;
+                            const longitude = position.coords.longitude;
+
+                            // Update the page
+                            locationStatus.textContent = 'Location: Detected ✓';
+                            locationStatus.style.color = '#28a745';
+                            locationCoords.textContent = `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+                            // Set form field values
+                            latitudeField.value = latitude;
+                            longitudeField.value = longitude;
+
+                            // Show the map
+                            mapDiv.style.display = 'block';
+
+                            // Initialize map if Google Maps API is loaded
+                            if (typeof google !== 'undefined') {
+                                initMap(latitude, longitude);
+                            } else {
+                                // Load Google Maps API
+                                const script = document.createElement('script');
+                                script.src = `https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMapCallback`;
+                                document.head.appendChild(script);
+
+                                // Define global callback
+                                window.initMapCallback = function() {
+                                    initMap(latitude, longitude);
+                                };
+                            }
+                        },
+                        // Error callback
+                        function(error) {
+                            locationStatus.textContent = 'Location: Detection failed';
+                            locationStatus.style.color = '#dc3545';
+
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    locationCoords.textContent = "You denied the request for geolocation.";
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    locationCoords.textContent = "Location information is unavailable.";
+                                    break;
+                                case error.TIMEOUT:
+                                    locationCoords.textContent = "The request to get location timed out.";
+                                    break;
+                                case error.UNKNOWN_ERROR:
+                                    locationCoords.textContent = "An unknown error occurred.";
+                                    break;
+                            }
+                        },
+                        // Options
+                        {
+                            maximumAge: 30000,
+                            timeout: 10000,
+                            enableHighAccuracy: true
+                        }
+                    );
+                } else {
+                    locationStatus.textContent = 'Location: Not supported';
+                    locationStatus.style.color = '#dc3545';
+                    locationCoords.textContent = "Geolocation is not supported by this browser.";
+                }
+            }
+
+            function initMap(latitude, longitude) {
+                const position = { lat: latitude, lng: longitude };
+
+                if (!map) {
+                    // Create a new map
+                    map = new google.maps.Map(mapDiv, {
+                        zoom: 15,
+                        center: position,
+                    });
+
+                    // Add a marker for the user's location
+                    marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: "Your location",
+                        animation: google.maps.Animation.DROP
+                    });
+                } else {
+                    // Update existing map
+                    map.setCenter(position);
+                    marker.setPosition(position);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

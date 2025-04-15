@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Capture</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #camera {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            /* Set explicit width and height for mobile-like view */
+            width: 240px;
+            height: 280px;
+            margin-bottom: 20px;
+            object-fit: cover; /* Ensures the aspect ratio is maintained */
+        }
+        button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #result {
+            margin-top: 20px;
+            max-width: 90%;
+        }
+        .location-info {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            text-align: left;
+            width: 80%;
+            max-width: 400px;
+        }
+        .location-status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .back-button {
+            background-color: #6c757d;
+            margin-top: 15px;
+        }
+        .back-button:hover {
+            background-color: #5a6268;
+        }
+        #map {
+            height: 200px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Camera Capture</h1>
+
+    <!-- Location Information Section -->
+    <div class="location-info">
+        <div class="location-status" id="locationStatus">Location: Not detected</div>
+        <button class="location-button" id="getLocationBtn" style="background-color: #007bff; padding: 5px 10px; font-size: 14px;">Get My Location</button>
+        <div id="locationCoords" style="margin-top: 10px; font-size: 0.9em; color: #666;"></div>
+
+        <!-- Map to show current location -->
+        <div id="map"></div>
+    </div>
+
+    <video id="camera" autoplay playsinline></video>
+    <div>
+        <button id="capture">Capture Image</button>
+        <a href="{{ url_for('home') }}"><button class="back-button">Back to Home</button></a>
+    </div>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <div id="result"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('camera');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            const captureButton = document.getElementById('capture');
+            const resultDiv = document.getElementById('result');
+            const locationStatus = document.getElementById('locationStatus');
+            const locationCoords = document.getElementById('locationCoords');
+            const getLocationBtn = document.getElementById('getLocationBtn');
+            const mapDiv = document.getElementById('map');
+
+            // Location variables
+            let userLatitude = null;
+            let userLongitude = null;
+            let map;
+            let marker;
+
+            // Try to get location when page loads
+            tryGetLocation();
+
+            // Button click handler
+            getLocationBtn.addEventListener('click', function() {
+                tryGetLocation();
+            });
+
+            // Set custom width and height for the video element (portrait mode)
+            const videoWidth = 300;  // Smaller width for portrait view
+            const videoHeight = 400; // Taller height for portrait view
+
+            // Access the user's camera with the custom resolution
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: videoWidth },  // Ideal width for the video
+                    height: { ideal: videoHeight }, // Ideal height for the video
+                    facingMode: "user" // Front camera (on mobile devices)
+                }
+            })
+            .then(stream => {
+                video.srcObject = stream;
+
+                // Force the video element to have a specific size
+                video.style.width = `${videoWidth}px`;
+                video.style.height = `${videoHeight}px`;
+            })
+            .catch(error => {
+                console.error('Error accessing the camera', error);
+                resultDiv.innerHTML = `<p style="color: red;">Error accessing the camera. Please ensure that your camera is connected and permissions are granted.</p>`;
+            });
+
+            // Capture the image when the button is clicked
+            captureButton.addEventListener('click', function() {
+                // Ensure the canvas matches the video resolution
+                canvas.width = videoWidth;
+                canvas.height = videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert the canvas to a blob and upload the image
+                canvas.toBlob(blob => {
+                    const formData = new FormData();
+                    formData.append('file', blob, 'capture.jpg');
+
+                    // Add location data if available
+                    if (userLatitude !== null && userLongitude !== null) {
+                        formData.append('latitude', userLatitude);
+                        formData.append('longitude', userLongitude);
+                    }
+
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(data => {
+                        resultDiv.innerHTML = data;
+                    })
+                    .catch(error => {
+                        console.error('Error uploading the image', error);
+                        resultDiv.innerHTML = `<p style="color: red;">Error uploading the image. Please try again.</p>`;
+                    });
+                });
+            });
+
+            function tryGetLocation() {
+                if (navigator.geolocation) {
+                    locationStatus.textContent = 'Location: Detecting...';
+
+                    navigator.geolocation.getCurrentPosition(
+                        // Success callback
+                        function(position) {
+                            userLatitude = position.coords.latitude;
+                            userLongitude = position.coords.longitude;
+
+                            // Update the page
+                            locationStatus.textContent = 'Location: Detected ✓';
+                            locationStatus.style.color = '#28a745';
+                            locationCoords.textContent = `Coordinates: ${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}`;
+
+                            // Show the map
+                            mapDiv.style.display = 'block';
+
+                            // Initialize map if Google Maps API is loaded
+                            if (typeof google !== 'undefined') {
+                                initMap(userLatitude, userLongitude);
+                            } else {
+                                // Load Google Maps API
+                                const script = document.createElement('script');
+                                script.src = `https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMapCallback`;
+                                document.head.appendChild(script);
+
+                                // Define global callback
+                                window.initMapCallback = function() {
+                                    initMap(userLatitude, userLongitude);
+                                };
+                            }
+                        },
+                        // Error callback
+                        function(error) {
+                            locationStatus.textContent = 'Location: Detection failed';
+                            locationStatus.style.color = '#dc3545';
+
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    locationCoords.textContent = "You denied the request for geolocation.";
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    locationCoords.textContent = "Location information is unavailable.";
+                                    break;
+                                case error.TIMEOUT:
+                                    locationCoords.textContent = "The request to get location timed out.";
+                                    break;
+                                case error.UNKNOWN_ERROR:
+                                    locationCoords.textContent = "An unknown error occurred.";
+                                    break;
+                            }
+                        },
+                        // Options
+                        {
+                            maximumAge: 30000,
+                            timeout: 10000,
+                            enableHighAccuracy: true
+                        }
+                    );
+                } else {
+                    locationStatus.textContent = 'Location: Not supported';
+                    locationStatus.style.color = '#dc3545';
+                    locationCoords.textContent = "Geolocation is not supported by this browser.";
+                }
+            }
+
+            function initMap(latitude, longitude) {
+                const position = { lat: latitude, lng: longitude };
+
+                if (!map) {
+                    // Create a new map
+                    map = new google.maps.Map(mapDiv, {
+                        zoom: 15,
+                        center: position,
+                    });
+
+                    // Add a marker for the user's location
+                    marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: "Your location",
+                        animation: google.maps.Animation.DROP
+                    });
+                } else {
+                    // Update existing map
+                    map.setCenter(position);
+                    marker.setPosition(position);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
