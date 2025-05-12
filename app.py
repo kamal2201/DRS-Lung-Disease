@@ -12,7 +12,7 @@ import json
 app = Flask(__name__)
 
 # IMPORTANT: Replace with your actual Google Maps API key
-GOOGLE_MAPS_API_KEY = "AIzaSyAi4eIJersq1-zyLEbfxpyNXJcYIVyPvVw"
+GOOGLE_MAPS_API_KEY = "..."
 
 # Create models directory if it doesn't exist
 MODELS_FOLDER = 'models'
